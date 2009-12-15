@@ -6,7 +6,7 @@ begin
   Jeweler::Tasks.new do |gem|
     gem.name = "akamai"
     gem.summary = %Q{Simple library for interacting with Akamai NetStorage and EdgeSuite caches}
-    gem.description = %Q{TODO: longer description of your gem}
+    gem.description = %Q{Simple library for interacting with Akamai NetStorage and EdgeSuite caches}
     gem.email = "jay.zeschin@factorylabs.com"
     gem.homepage = "http://github.com/jayzes/akamai"
     gem.authors = ["Jay Zeschin"]
