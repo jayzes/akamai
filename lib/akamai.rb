@@ -2,60 +2,42 @@ require 'tempfile'
 require 'net/ftp'
 require 'soap/wsdlDriver'
 
-module UserHome
-  # ganked from railties
-  def user_home
-    if ENV['HOME']
-      ENV['HOME']
-    elsif ENV['USERPROFILE']
-      ENV['USERPROFILE']
-    elsif ENV['HOMEDRIVE'] and ENV['HOMEPATH']
-      "#{ENV['HOMEDRIVE']}:#{ENV['HOMEPATH']}"
-    else
-      File.expand_path '~'
-    end
+module Akamai
+  class << self
+    attr_accessor :configuration
   end
-end
 
-class Akamai
-  
-  extend UserHome
-  
-  WSDL_URL    = 'http://ccuapi.akamai.com/ccuapi-axis.wsdl'
-  CONFIG_PATH = "#{user_home}/.akamai_config.yml"
-  
-  attr_accessor :cachecontrol_username, 
-                :cachecontrol_password
-                
-  attr_accessor :netstorage_username, 
-                :netstorage_password,
-                :netstorage_ftp_host,
-                :netstorage_public_host,
-                :netstorage_basedir
-                
-  
-  
-  def initialize
-    raise ArgumentError, "Config file (#{CONFIG_PATH}) could not be found" unless File.exists?(CONFIG_PATH)
-    config = File.open(CONFIG_PATH) { |yf| YAML::load(yf) }
-    self.cachecontrol_username   = config['cache_control']['username']
-    self.cachecontrol_password   = config['cache_control']['password']
-    self.netstorage_username     = config['netstorage']['username']
-    self.netstorage_password     = config['netstorage']['password']
-    self.netstorage_ftp_host     = config['netstorage']['ftp_host']
-    self.netstorage_public_host  = config['netstorage']['public_host']
-    self.netstorage_basedir      = config['netstorage']['basedir']
+  def self.configure
+    self.configuration ||= Configuration.new
+    yield(configuration)
   end
+
+  class Configuration
     
-  def purge(*urls)
+    attr_accessor :cachecontrol_username, 
+                  :cachecontrol_password,
+                  :netstorage_username, 
+                  :netstorage_password,
+                  :netstorage_ftp_host,
+                  :netstorage_public_host,
+                  :netstorage_basedir,
+                  :wsdl_url
+
+    def initialize
+      self.wsdl_url = 'http://ccuapi.akamai.com/ccuapi-axis.wsdl'
+    end
+    
+  end
+  
+  def self.purge(*urls)
     driver = SOAP::WSDLDriverFactory.new(WSDL_URL).create_rpc_driver
     driver.options['protocol.http.ssl_config.verify_mode'] = OpenSSL::SSL::VERIFY_NONE
-    driver.options["protocol.http.basic_auth"] << [WSDL_URL, cachecontrol_username, cachecontrol_password]
-    result = driver.purgeRequest(cachecontrol_username, cachecontrol_password, '', [], urls)
+    driver.options["protocol.http.basic_auth"] << [WSDL_URL, self.configuration.cachecontrol_username, self.configuration.cachecontrol_password]
+    result = driver.purgeRequest(self.configuration.cachecontrol_username, self.configuration.cachecontrol_password, '', [], urls)
     return result.resultCode == '100'
   end
-
-  def put(location, filename)
+  
+  def self.put(location, filename)
     Tempfile.open(filename)  do |tempfile| 
     
       # write to the tempfile
@@ -64,12 +46,12 @@ class Akamai
       
       puts "Tempfile generated for #{filename} at #{tempfile.path}."
 
-      ftp = Net::FTP::new(netstorage_ftp_host)
+      ftp = Net::FTP::new(self.configuration.netstorage_ftp_host)
       ftp.passive = true
     
-      ftp.login(netstorage_username, netstorage_password)
-      ftp.chdir(netstorage_basedir) if netstorage_basedir
-      ftp.chdir(location)
+      ftp.login(self.configuration.netstorage_username, self.configuration.netstorage_password)
+      ftp.chdir(self.configuration.netstorage_basedir) if self.configuration.netstorage_basedir
+      ftp.chdir(self.configuration.location)
 
       ftp.put(tempfile.path, "#{filename}.new")
       ftp.delete(filename) unless ftp.ls(filename)
@@ -82,8 +64,9 @@ class Akamai
       puts "Generated file deleted from tmp."
 
       puts "Sending purge request"
-      purge_result = purge("http://#{netstorage_public_host}/#{location}/#{filename}")
-      puts "Purge request #{ purge_result ? 'was successful' : 'failed' }."
+      purge_result = purge("http://#{self.configuration.netstorage_public_host}/#{location}/#{filename}")
+      puts "Purge request #{ self.configuration.purge_result ? 'was successful' : 'failed' }."
     end
   end
+  
 end
