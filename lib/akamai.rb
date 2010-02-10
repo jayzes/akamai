@@ -45,27 +45,33 @@ module Akamai
       tempfile.flush
       
       puts "Tempfile generated for #{filename} at #{tempfile.path}."
+      
+      put_file(tempfile.path, location, filename)
+      
+      tempfile.close
+      puts "Generated file deleted from tmp."
 
+      
+    end
+    
+    def self.put_file(local_path, location, filename)
       ftp = Net::FTP::new(self.configuration.netstorage_ftp_host)
       ftp.passive = true
     
       ftp.login(self.configuration.netstorage_username, self.configuration.netstorage_password)
       ftp.chdir(self.configuration.netstorage_basedir) if self.configuration.netstorage_basedir
-      ftp.chdir(self.configuration.location)
+      ftp.chdir(location)
 
-      ftp.put(tempfile.path, "#{filename}.new")
+      ftp.put(local_path, "#{filename}.new")
       ftp.delete(filename) unless ftp.ls(filename)
       ftp.rename("#{filename}.new", filename)
       ftp.close
 
       puts "Akamai upload completed for #{filename}."
       
-      tempfile.close
-      puts "Generated file deleted from tmp."
-
       puts "Sending purge request"
       purge_result = purge("http://#{self.configuration.netstorage_public_host}/#{location}/#{filename}")
-      puts "Purge request #{ self.configuration.purge_result ? 'was successful' : 'failed' }."
+      puts "Purge request #{ purge_result ? 'was successful' : 'failed' }."
     end
   end
   
