@@ -30,9 +30,9 @@ module Akamai
   end
   
   def self.purge(*urls)
-    driver = SOAP::WSDLDriverFactory.new(WSDL_URL).create_rpc_driver
+    driver = SOAP::WSDLDriverFactory.new(self.configuration.wsdl_url).create_rpc_driver
     driver.options['protocol.http.ssl_config.verify_mode'] = OpenSSL::SSL::VERIFY_NONE
-    driver.options["protocol.http.basic_auth"] << [WSDL_URL, self.configuration.cachecontrol_username, self.configuration.cachecontrol_password]
+    driver.options["protocol.http.basic_auth"] << [self.configuration.wsdl_url, self.configuration.cachecontrol_username, self.configuration.cachecontrol_password]
     result = driver.purgeRequest(self.configuration.cachecontrol_username, self.configuration.cachecontrol_password, '', [], urls)
     return result.resultCode == '100'
   end
