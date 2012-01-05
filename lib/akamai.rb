@@ -16,6 +16,8 @@ module Akamai
     
     attr_accessor :cachecontrol_username, 
                   :cachecontrol_password,
+                  :cachecontrol_domain,
+                  :cachecontrol_purge_action,
                   :netstorage_username, 
                   :netstorage_password,
                   :netstorage_ftp_host,
@@ -25,15 +27,18 @@ module Akamai
 
     def initialize
       self.wsdl_url = 'http://ccuapi.akamai.com/ccuapi-axis.wsdl'
+      self.cachecontrol_domain = "production"
+      self.cachecontrol_purge_action = "remove"
     end
     
   end
   
   def self.purge(*urls)
-    driver = SOAP::WSDLDriverFactory.new(self.configuration.wsdl_url).create_rpc_driver
+    config = self.configuration
+    driver = SOAP::WSDLDriverFactory.new(config.wsdl_url).create_rpc_driver
     driver.options['protocol.http.ssl_config.verify_mode'] = OpenSSL::SSL::VERIFY_NONE
-    driver.options["protocol.http.basic_auth"] << [self.configuration.wsdl_url, self.configuration.cachecontrol_username, self.configuration.cachecontrol_password]
-    result = driver.purgeRequest(self.configuration.cachecontrol_username, self.configuration.cachecontrol_password, '', [], urls)
+    driver.options["protocol.http.basic_auth"] << [config.wsdl_url, config.cachecontrol_username, config.cachecontrol_password]
+    result = driver.purgeRequest(config.cachecontrol_username, config.cachecontrol_password, '', ["domain=#{config.cachecontrol_domain}", "action=#{config.cachecontrol_purge_action}"], urls)
     return result.resultCode == '100'
   end
   
