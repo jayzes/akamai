@@ -5,6 +5,7 @@ require 'soap/wsdlDriver'
 module Akamai
   class << self
     attr_accessor :configuration
+    attr_writer :connection
   end
 
   def self.configure
@@ -12,8 +13,11 @@ module Akamai
     yield(configuration)
   end
 
+  def self.connection
+    @connection ||= Connection.new(configuration)
+  end
+
   class Configuration
-    
     attr_accessor :cachecontrol_username, 
                   :cachecontrol_password,
                   :cachecontrol_domain,
@@ -25,22 +29,49 @@ module Akamai
                   :netstorage_basedir,
                   :wsdl_url
 
-    def initialize
+    def initialize(args = {})
       self.wsdl_url = 'http://ccuapi.akamai.com/ccuapi-axis.wsdl'
       self.cachecontrol_domain = "production"
       self.cachecontrol_purge_action = "remove"
+
+      for key, val in args
+        send("#{key}=".to_sym, val)
+      end
     end
     
   end
-  
-  def self.purge(*urls)
-    config = self.configuration
-    driver = SOAP::WSDLDriverFactory.new(config.wsdl_url).create_rpc_driver
-    driver.options['protocol.http.ssl_config.verify_mode'] = OpenSSL::SSL::VERIFY_NONE
-    driver.options["protocol.http.basic_auth"] << [config.wsdl_url, config.cachecontrol_username, config.cachecontrol_password]
-    result = driver.purgeRequest(config.cachecontrol_username, config.cachecontrol_password, '', ["domain=#{config.cachecontrol_domain}", "action=#{config.cachecontrol_purge_action}"], urls)
-    return result.resultCode == '100'
+
+  class Connection
+    attr_accessor :config
+
+    def initialize(args = {})
+      @config = args.kind_of?(Configuration) ? args : Configuration.new(args)
+    end
+
+    def driver
+      return @driver if @driver
+
+      @driver = SOAP::WSDLDriverFactory.new(config.wsdl_url).create_rpc_driver
+      @driver.options['protocol.http.ssl_config.verify_mode'] = OpenSSL::SSL::VERIFY_NONE
+      @driver.options["protocol.http.basic_auth"] << [config.wsdl_url, config.cachecontrol_username, config.cachecontrol_password]
+      @driver
+    end
+
+    def purge(*urls)
+      result = driver.purgeRequest(config.cachecontrol_username, config.cachecontrol_password, '', ["domain=#{config.cachecontrol_domain}", "action=#{config.cachecontrol_purge_action}"], urls)
+      raise PurgeError, result.inspect unless result.resultCode == '100'
+      true
+    end
+
+    class Error < StandardError
+    end
+    class PurgeError < StandardError
+    end
   end
+
+  def self.purge(*urls)
+    connection.purge(*urls)
+  end  
   
   def self.put(location, filename)
     Tempfile.open(filename)  do |tempfile| 
