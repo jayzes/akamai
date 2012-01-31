@@ -1,6 +1,7 @@
 require 'tempfile'
 require 'net/ftp'
 require 'soap/wsdlDriver'
+require 'akamai/version'
 
 module Akamai
   class << self
