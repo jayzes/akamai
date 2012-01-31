@@ -1,6 +1,6 @@
 = akamai
 
-Description goes here.
+Very simple utility library for scripting Akamai NetStorage FTP and WAA purge operations
 
 == Note on Patches/Pull Requests
  
