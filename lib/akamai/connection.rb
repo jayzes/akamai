@@ -19,7 +19,7 @@ module Akamai
 
     def purge(*urls)
       opts = ["domain=#{config.cachecontrol_domain}", "action=#{config.cachecontrol_purge_action}"]
-      opts << "email-notification=#{config.cachecontrol_domain}" if config.cachecontrol_domain
+      opts << "email-notification=#{config.cachecontrol_email_notification}" if config.cachecontrol_email_notification
       result = driver.purgeRequest(config.cachecontrol_username, config.cachecontrol_password, '', opts, urls)
       raise PurgeError, result.inspect unless result.resultCode == '100'
       true
